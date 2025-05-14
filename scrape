@@ -1,0 +1,43 @@
+import pandas as pd
+from urllib.request import urlopen
+import json
+from datetime import date
+from sqlalchemy import create_engine
+today = date.today()
+today_str = today.strftime("%m.%d.%Y")
+
+engine = create_engine('postgresql://postgres:agent007@localhost:5432/postgres')
+
+client = "Starbucks"
+txt_file = open("keywords.txt", "r")
+content_list = txt_file.readlines()
+new_lst = [x[:-1] for x in content_list]
+print(new_lst)
+
+df = pd.read_csv('SERP Scrape Starbucks 06.16.2022.csv')
+df
+
+# Daily SERP Pull Loop
+for keyword in new_lst:
+    url = "https://serpapi.com/search.json?engine=google&q="+keyword+"&location=United+States&google_domain=google.com&gl=us&hl=en&num=100&api_key=252829e430896af3987fbbc840119d11f0765e3f9b8a4949c80f033396c27d4a"
+    url = url.replace(" ", "%20")
+    response = urlopen(url)
+    data_json = json.loads(response.read())
+    organic = data_json['organic_results']
+    df_organic = pd.DataFrame(organic)
+    df_organic['keyword'] = keyword
+    df_organic['client'] = "Starbucks"
+    today = date.today()
+    df_organic['day_retrieved'] = today
+    df = df.append(df_organic)
+
+df = df[['link', 'keyword', 'client', 'day_retrieved', 'position']]
+df
+filename = 'SERP Scrape '+client+' '+today_str+'.csv'
+
+df.to_csv(filename)
+
+df.to_sql('serp', engine, if_exists='replace', index=False)
+
+df_sql = pd.read_sql_table('serp', engine)
+df_sql.to_csv('sql table.csv')
